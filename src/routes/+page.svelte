@@ -1,33 +1,104 @@
 <script lang="ts">
-  import type { LatLng } from 'leaflet';
-  import type { LatLngExpression } from 'leaflet';
   import L from 'leaflet';
-  import plus from 'open-location-code-typescript';
+  import OpenLocationCode from 'open-location-code-typescript';
+
+  interface NavigationApp {
+    name: string;
+    url: string;
+    tint: string;
+  }
 
   let map: L.Map;
-  let here: LatLngExpression;
+  let marker: L.Marker;
 
-  let code = window.location.hash.slice(1).trim();
+  let code: string = '';
+  let tileURL: string = '';
 
-  $: codeArea = plus.isValid(code) ? plus.decode(code) : null;
+  refreshCode();
+  window.onhashchange = refreshCode;
 
-  window.onhashchange = (x) => {
-    code = window.location.hash.slice(1).trim();
-  };
+  function refreshCode() {
+    code = window.location.hash.match('#/(?<plusCode>.+)')?.groups?.plusCode ?? '';
+  }
+
+  $: isValidCode = OpenLocationCode.isValid(code);
+
+  $: area = isValidCode ? OpenLocationCode.decode(code) : null;
+
+  $: zoom = isValidCode ? 17 : 3;
+
+  $: lat = area?.latitudeCenter ?? 47.1164;
+  $: lon = area?.longitudeCenter ?? -101.2996;
+
+  $: ll = [lat, lon].map((n) => n.toFixed(5)).join(',');
+
+  $: navigationApps = [
+    {
+      name: 'Waze',
+      url: `https://waze.com/ul?ll=${ll}&navigate=yes`,
+      tint: '#05c8f7',
+    },
+    {
+      name: 'Apple Maps',
+      url: `https://maps.apple.com/?address=${ll}`,
+      tint: '#7d7d7d',
+    },
+    {
+      name: 'Google Maps',
+      url: `https://www.google.com/maps/search/?api=1&query=${ll}`,
+      tint: '#20a462',
+    },
+  ] as NavigationApp[];
 
   $: {
-    console.log(code);
-    if (code !== '' && plus.isValid(code)) {
-      let pos = plus.decode(code);
-      here = [pos.latitudeCenter, pos.longitudeCenter];
-      if (map != undefined) {
-        L.marker(here, { draggable: true }).addTo(map).bindPopup(code).openPopup();
-        map.setView(here, 17);
-      }
+    marker?.removeFrom(map);
+    map?.setView([lat, lon], zoom);
+
+    if (map && isValidCode) {
+      marker = L.marker([lat, lon]);
+      marker.addTo(map);
+      marker.bindPopup(code.toUpperCase(), { className: 'popup' }).openPopup();
+
+      const zoom = 15;
+
+      const x = Math.floor(((lon + 180) / 360) * (1 << zoom));
+
+      let y = 1 - Math.log(Math.tan(toRad(lat)) + 1 / Math.cos(toRad(lat))) / Math.PI;
+      y = Math.floor(y * 0.5 * (1 << zoom));
+
+      const subdomains = ['a', 'b', 'c'];
+      const s = subdomains[Math.floor(Math.random() * subdomains.length)];
+
+      tileURL = `https://${s}.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
     }
   }
 
-  function locateMe() {
+  $: {
+    if (tileURL !== '') {
+      ['icon', 'apple-touch-icon'].forEach((icon) => {
+        document.querySelector(`[rel=${icon}]`)?.remove();
+
+        const link = document.createElement('link');
+
+        link.href = tileURL;
+        link.rel = icon;
+
+        document.head.appendChild(link);
+      });
+    }
+  }
+
+  function toRad(n: number) {
+    return (n * Math.PI) / 180;
+  }
+
+  async function locateMe() {
+    let [lat, lon] = await getGeoLocation();
+
+    window.location.hash = `/${OpenLocationCode.encode(lat, lon)}`;
+  }
+
+  function getGeoLocation() {
     return new Promise<number[]>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         (position) => resolve([position.coords.latitude, position.coords.longitude]),
@@ -36,7 +107,7 @@
     });
   }
 
-  async function createMap(container: HTMLElement) {
+  function mapAction(container: HTMLElement) {
     let m = L.map(container);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -45,75 +116,37 @@
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(m);
 
-    if (here == undefined) {
-      here = [49.8954, -97.1785];
-    }
-
-    m.setView(here, 10);
+    m.setView([lat, lon], zoom);
 
     map = m;
-  }
-
-  function mapAction(container: HTMLElement) {
-    createMap(container);
 
     return {
-      destroy: () => {
+      destroy() {
         map.remove();
       },
     };
   }
-
-  async function findMe() {
-    let pos = await locateMe();
-    let plusCode = plus.encode(pos[0], pos[1]);
-    window.location.hash = plusCode;
-  }
-
-  enum Map {
-    Apple,
-    Google,
-    Waze,
-  }
-
-  function coordinatesFrom(plusCode: string) {
-    let area = plus.decode(plusCode);
-    return area.latitudeCenter.toFixed(5) + ',' + area.longitudeCenter.toFixed(5);
-  }
-
-  function navUrlFor(plusCode: string, map: Map) {
-    const maps = {
-      [Map.Apple]: 'https://maps.apple.com/?address=LATLON',
-      [Map.Google]: 'https://www.google.com/maps/search/?api=1&query=LATLON',
-      [Map.Waze]: 'https://waze.com/ul?ll=LATLON&navigate=yes',
-    };
-
-    return maps[map].replace('LATLON', coordinatesFrom(plusCode));
-  }
 </script>
-
-<!-- <h1>Superb Sphere</h1> -->
 
 <main>
   <div id="map" use:mapAction />
 </main>
 
 <footer>
-  {#if codeArea !== null}
-    <a href={navUrlFor(code, Map.Waze)} target="_blank"><button class="waze">Waze</button></a>
-    <a href={navUrlFor(code, Map.Apple)} target="_blank"
-      ><button class="apple">Apple Maps</button></a
-    >
-    <a href={navUrlFor(code, Map.Google)} target="_blank"
-      ><button class="google">Google Maps</button></a
-    >
+  {#if isValidCode}
+    {#each navigationApps as app}
+      <a href={app.url} target="_blank">
+        <button style="background-color: {app.tint}">{app.name}</button>
+      </a>
+    {/each}
   {:else}
-    <button on:click={findMe} class="apple">Locate Me</button>
+    <button on:click={locateMe}>Locate Me</button>
   {/if}
 </footer>
 
 <style>
   @import 'leaflet/dist/leaflet.css';
+
   :global(*) {
     margin: 0;
     padding: 0;
@@ -122,6 +155,7 @@
   #map {
     height: 50vh;
   }
+
   footer {
     margin: 1rem;
     display: grid;
@@ -139,18 +173,11 @@
     border-radius: 1rem;
     padding: 1rem;
     font-size: 2rem;
+    color: white;
+    background-color: black;
   }
 
-  .waze {
-    color: white;
-    background-color: #05c8f7;
-  }
-  .google {
-    color: white;
-    background-color: #20a462;
-  }
-  .apple {
-    color: white;
-    background-color: #7d7d7d;
+  :global(.popup) {
+    font-family: 'Courier New', Courier, monospace;
   }
 </style>
