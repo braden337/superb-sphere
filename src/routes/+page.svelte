@@ -162,6 +162,10 @@
 
   #map {
     height: 50vh;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
   }
 
   footer {
