@@ -122,7 +122,7 @@
 
     m.setView([lat, lon], zoom);
 
-    m.on('click', (e) => {
+    m.on('contextmenu', (e) => {
       move(e.latlng.lat, e.latlng.lng);
     });
 
