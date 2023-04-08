@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { LeafletEventHandlerFn } from 'leaflet';
   import L from 'leaflet';
   import OpenLocationCode from 'open-location-code-typescript';
 
@@ -92,10 +93,13 @@
     return (n * Math.PI) / 180;
   }
 
-  async function locateMe() {
-    let [lat, lon] = await getGeoLocation();
-
+  function move(lat: number, lon: number) {
     window.location.hash = `/${OpenLocationCode.encode(lat, lon)}`;
+  }
+
+  async function locateMe() {
+    const [lat, lon] = await getGeoLocation();
+    move(lat, lon);
   }
 
   function getGeoLocation() {
@@ -117,6 +121,10 @@
     }).addTo(m);
 
     m.setView([lat, lon], zoom);
+
+    m.on('click', (e) => {
+      move(e.latlng.lat, e.latlng.lng);
+    });
 
     map = m;
 
