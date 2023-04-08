@@ -26,7 +26,7 @@
 
   $: area = isValidCode ? OpenLocationCode.decode(code) : null;
 
-  $: zoom = isValidCode ? 17 : 3;
+  $: zoom = isValidCode ? 15 : 3;
 
   $: lat = area?.latitudeCenter ?? 47.1164;
   $: lon = area?.longitudeCenter ?? -101.2996;
