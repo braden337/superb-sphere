@@ -174,6 +174,9 @@
 
   #map {
     height: 100%;
+  }
+
+  #map, footer button {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
