@@ -144,7 +144,7 @@
   {#if isValidCode}
     {#each navigationApps as app}
       <a href={app.url} target="_blank">
-        <button style="background-color: {app.tint}">{app.name}</button>
+        <button style="background-color: {app.tint}">{app.name.toUpperCase().slice(0, 4)}</button>
       </a>
     {/each}
   {:else}
@@ -158,10 +158,22 @@
   :global(*) {
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
+  }
+
+  :global(html) {
+    height: -webkit-fill-available;
+  }
+
+  :global(body) {
+    height: 100vh;
+    height: -webkit-fill-available;
+    display: grid;
+    grid-template-rows: 1fr auto;
   }
 
   #map {
-    height: 50vh;
+    height: 100%;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -169,13 +181,13 @@
   }
 
   footer {
+    display: flex;
     margin: 1rem;
-    display: grid;
+    justify-content: center;
     gap: 1rem;
   }
 
   footer > a {
-    display: grid;
     text-decoration: none;
   }
 
@@ -184,7 +196,7 @@
     border: none;
     border-radius: 1rem;
     padding: 1rem;
-    font-size: 2rem;
+    font-size: 1.5rem;
     color: white;
     background-color: black;
   }
