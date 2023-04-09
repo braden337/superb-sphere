@@ -182,9 +182,10 @@
 
   footer {
     display: flex;
-    margin: 1rem;
     justify-content: center;
     gap: 1rem;
+    margin: 1rem;
+    margin-bottom: calc(1rem + env(safe-area-inset-bottom, 1rem));
   }
 
   footer > a {
